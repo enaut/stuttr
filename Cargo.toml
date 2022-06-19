@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 serenity = {version="0.11", features = ["framework", "standard_framework", "rustls_backend"]}
 tokio = { version = "1.19", features = ["macros", "signal", "rt-multi-thread"] }
+serde = { version = "1.0", features = ["derive"] }
 dotenv = "0.15"
 tracing = "0.1.23"
 tracing-subscriber = "0.3"
-web_ical = {git="https://github.com/otoxteam/web_ical.git", branch="master"}
+gql_client = "1.0.4"
