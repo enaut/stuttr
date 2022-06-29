@@ -24,10 +24,7 @@ use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 use tracing::{error, info};
 
-use crate::commands::list::*;
-use crate::commands::math::*;
-use crate::commands::meta::*;
-use crate::commands::owner::*;
+use crate::commands::sync::*;
 
 pub struct ShardManagerContainer;
 
@@ -49,7 +46,7 @@ impl EventHandler for Handler {
 }
 
 #[group]
-#[commands(multiply, ping, quit, list)]
+#[commands(sync)]
 struct General;
 
 #[tokio::main]

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::Deserialize;
 use serenity::framework::standard::macros::command;
 use serenity::framework::standard::CommandResult;
@@ -41,12 +43,12 @@ struct Meeting {
 }
 
 #[command]
-pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn sync(ctx: &Context, msg: &Message) -> CommandResult {
     let query = r#"query  {
         groupByUrlname(urlname: "rust-community-stuttgart") {
           name
-          city   
-          upcomingEvents(input: {first:3, last:10}){
+          city
+          upcomingEvents(input: {first:2, last:10}){
             count
             edges{
               node{
@@ -57,7 +59,6 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
                 id
               }
             }
-            
           }
         }
       }
@@ -75,11 +76,29 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
         .map(|x| x.node)
         .collect();
 
-    for line in events {
-        println!("Item {:#?}", &line);
-        msg.channel_id
-            .say(&ctx.http, format!("Item {:#?}", line))
-            .await?;
+    for event in events {
+        println!("Item {:#?}", &event);
+        let res = msg
+            .guild_id
+            .expect("Failed to get Guild")
+            .create_scheduled_event(Arc::clone(&ctx.http), |e| {
+                e.description(&event.title) // No Idea where the description appears
+                    .start_time(
+                        Timestamp::parse(&event.date_time.replace('+', ":00+")) // Starttime needs the extra :00 in front of the + sign to parse sucessfully
+                            .expect("parse timestamp"),
+                    )
+                    // TODO get end time from api or calculate a default 2 hours...
+                    .end_time(Timestamp::parse("2022-08-30T12:18:25Z").expect("parse end_time"))
+                    // Thats what we see in the event
+                    .name(event.title)
+                    // external is if it is locally in a pub, `ScheduledEventType::Voice` if it is online in discord
+                    .kind(ScheduledEventType::External)
+                    // location is needed if it is external and it is displayed as link in the event.
+                    .location(event.event_url)
+                //TODO .image(Arc::clone(&ctx.http), AttachmentType::from("https://secure.meetupstatic.com/photos/event/4/c/9/6/clean_480019606.jpeg"))
+            })
+            .await;
+        println!("{:?}", res);
     }
 
     Ok(())
