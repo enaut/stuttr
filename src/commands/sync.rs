@@ -7,6 +7,7 @@ use serenity::{
 use crate::sync::do_sync;
 
 #[command]
+#[required_permissions("ADMINISTRATOR")]
 pub async fn sync(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild_id = msg.guild_id.expect("GuildId not found");
     if let (Ok(meetup_group_name), Ok(voice_channel_id)) = (
