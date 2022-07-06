@@ -11,10 +11,8 @@
 mod commands;
 mod sync;
 
-use std::{collections::HashSet, env, sync::Arc, time::Duration};
+use std::{collections::HashSet, env, sync::Arc};
 
-use serde::Deserialize;
-use serenity::model::channel::{Channel, ChannelCategory, GuildChannel, PrivateChannel};
 use serenity::{
     async_trait,
     client::bridge::gateway::ShardManager,
@@ -23,14 +21,10 @@ use serenity::{
     model::{event::ResumedEvent, gateway::Ready},
     prelude::*,
 };
-use tokio::time::Instant;
 use tracing::{error, info};
 
+use crate::commands::{register::*, sync::*};
 use crate::sync::{start_syncing_of_one_meetup_group, Synchronizer};
-use crate::{
-    commands::{register::*, sync::*},
-    sync::do_sync,
-};
 
 pub struct ShardManagerContainer;
 
