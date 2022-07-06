@@ -1,13 +1,55 @@
 {
   "db": "SQLite",
-  "afffb0d9c15a7d40d0ebac88480c3625c0ed5321edf92684aadfe041f760798d": {
+  "83d6e2a9dce2101574be905f290cb381a542beb9519a87d415252eefc22e7965": {
+    "describe": {
+      "columns": [
+        {
+          "name": "guild_id",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "server_name",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "meetup_group",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "number_of_events",
+          "ordinal": 3,
+          "type_info": "Int64"
+        },
+        {
+          "name": "voice_channel_id",
+          "ordinal": 4,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT * from syncs"
+  },
+  "e00e66ab18e37fa1e6c8d26c4e9b3aa85c968626a44bc41a0dd48379187ba0df": {
     "describe": {
       "columns": [],
       "nullable": [],
       "parameters": {
-        "Right": 2
+        "Right": 5
       }
     },
-    "query": "INSERT INTO syncs (guild_id, server_name) VALUES (?, ?)"
+    "query": "INSERT INTO syncs (guild_id, server_name, meetup_group, voice_channel_id, number_of_events) VALUES (?, ?, ?, ?,?)"
   }
 }
