@@ -1,0 +1,13 @@
+{
+  "db": "SQLite",
+  "afffb0d9c15a7d40d0ebac88480c3625c0ed5321edf92684aadfe041f760798d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 2
+      }
+    },
+    "query": "INSERT INTO syncs (guild_id, server_name) VALUES (?, ?)"
+  }
+}

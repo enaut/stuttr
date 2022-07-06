@@ -9,22 +9,28 @@
 //! features = ["framework", "standard_framework"]
 //! ```
 mod commands;
+mod sync;
 
-use std::collections::HashSet;
-use std::env;
-use std::sync::Arc;
+use std::{collections::HashSet, env, sync::Arc, time::Duration};
 
-use serenity::async_trait;
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::framework::standard::macros::group;
-use serenity::framework::StandardFramework;
-use serenity::http::Http;
-use serenity::model::event::ResumedEvent;
-use serenity::model::gateway::Ready;
-use serenity::prelude::*;
+use serde::Deserialize;
+use serenity::model::channel::{Channel, ChannelCategory, GuildChannel, PrivateChannel};
+use serenity::{
+    async_trait,
+    client::bridge::gateway::ShardManager,
+    framework::{standard::macros::group, StandardFramework},
+    http::Http,
+    model::{event::ResumedEvent, gateway::Ready},
+    prelude::*,
+};
+use tokio::time::Instant;
 use tracing::{error, info};
 
-use crate::commands::sync::*;
+use crate::sync::{start_syncing_of_one_meetup_group, Synchronizer};
+use crate::{
+    commands::{register::*, sync::*},
+    sync::do_sync,
+};
 
 pub struct ShardManagerContainer;
 
@@ -32,12 +38,31 @@ impl TypeMapKey for ShardManagerContainer {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
-struct Handler;
+#[derive(Debug, Clone)]
+struct Handler {
+    database: sqlx::SqlitePool,
+}
+
+impl TypeMapKey for Handler {
+    type Value = Handler;
+}
 
 #[async_trait]
 impl EventHandler for Handler {
-    async fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        let data = ctx.data.read().await;
+        let bot = data.get::<Handler>();
+
+        let res: Vec<Synchronizer> = sqlx::query_as!(Synchronizer, "SELECT * from syncs")
+            .fetch_all(&bot.expect("A database is not available").database)
+            .await
+            .expect("Failed to query the channels to sync");
+
         info!("Connected as {}", ready.user.name);
+        for s in res {
+            let ctx = ctx.clone();
+            tokio::spawn(async move { start_syncing_of_one_meetup_group(s, &ctx, true).await });
+        }
     }
 
     async fn resume(&self, _: Context, _: ResumedEvent) {
@@ -46,13 +71,13 @@ impl EventHandler for Handler {
 }
 
 #[group]
-#[commands(sync)]
+#[commands(sync, register)]
 struct General;
 
 #[tokio::main]
 async fn main() {
     // This will load the environment variables located at `./.env`, relative to
-    // the CWD. See `./.env.example` for an example on how to structure this.
+    // the CWD. See `./.env-sample` for an example on how to structure this.
     dotenv::dotenv().expect("Failed to load .env file");
 
     // Initialize the logger to use environment variables.
@@ -62,6 +87,24 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
+
+    // Initiate a connection to the database file, creating the file if required.
+    let default_file = "database.sqlite".to_owned();
+    let database_url = env::var("DATABASE_URL").unwrap_or(default_file);
+    let database_url = database_url.trim_start_matches("sqlite:");
+    let database = sqlx::sqlite::SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect_with(
+            sqlx::sqlite::SqliteConnectOptions::new()
+                .filename(database_url)
+                .create_if_missing(true),
+        )
+        .await
+        .expect("Couldn't connect to database");
+    sqlx::migrate!()
+        .run(&database)
+        .await
+        .expect("Failed to apply migrations");
 
     let http = Http::new(&token);
 
@@ -81,17 +124,21 @@ async fn main() {
         .configure(|c| c.owners(owners).prefix("~"))
         .group(&GENERAL_GROUP);
 
+    let bot = Handler { database };
+
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILD_SCHEDULED_EVENTS;
     let mut client = Client::builder(&token, intents)
         .framework(framework)
-        .event_handler(Handler)
+        .event_handler(bot.clone())
         .await
-        .expect("Err creating client");
+        .expect("Error creating client");
 
     {
         let mut data = client.data.write().await;
+        data.insert::<Handler>(bot.clone());
         data.insert::<ShardManagerContainer>(client.shard_manager.clone());
     }
 
